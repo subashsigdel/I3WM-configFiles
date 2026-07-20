@@ -398,7 +398,7 @@ exec --no-startup-id ~/.screenlayout/monitor.sh
 
 # set wallpaper
 # exec --no-startup-id sleep 2 && nitrogen --restore
-exec --no-startup-id sleep 1 && feh --bg-fill /home/subash/Pictures/wallpaper/new2.jpg
+exec --no-startup-id sleep 1 && feh --bg-fill /home/subash/Pictures/wallpaper/images.jpg
 
 # set powersavings for display:
 exec --no-startup-id xset s 480 dpms 600 600 600
@@ -424,6 +424,7 @@ exec --no-startup-id xset s 480 dpms 600 600 600
 exec --no-startup-id /usr/bin/dunst
 # alternative if you installed aside with XFCE4:
 # exec --no-startup-id /usr/lib/xfce4/notifyd/xfce4-notifyd &
+
 
 # autotiling script
 # https://github.com/nwg-piotr/autotiling
@@ -596,3 +597,8 @@ bindsym $mod+t exec --no-startup-id rofi -show window \
 #exec --no-startup-id greenclip daemon>/dev/null
 #bindsym $mod+c exec --no-startup-id rofi -modi "clipboard:greenclip print" -show clipboard \
 #		-config ~/.config/rofi/rofidmenu.rasi
+# Flameshot screenshot with Ctrl+Shift+S
+bindsym Control+Shift+s exec --no-startup-id flameshot gui
+
+# Stop wake alarm
+bindsym $mod+F12 exec sudo systemctl stop wake-alarm.service

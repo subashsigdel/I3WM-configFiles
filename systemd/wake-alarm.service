@@ -1,0 +1,13 @@
+[Unit]
+Description=Wake-up Alarm
+After=sound.target alsa-restore.service
+[Service]
+Type=simple
+User=subash
+Environment=HOME=/home/subash
+ExecStart=/home/subash/vs/Laptop_sh/wake_alarm.sh
+StandardInput=tty
+TTYPath=/dev/tty1
+
+[Install]
+WantedBy=multi-user.target
