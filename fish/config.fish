@@ -1,3 +1,4 @@
+fish_add_path ~/.local/bin
 if status is-interactive && not set -q TMUX
     if set -q SSH_CLIENT
         # Phone: attach to whatever sessions exist, just detach on close
@@ -33,3 +34,4 @@ function play_error_sound --on-event fish_postexec
     end
 end
 set -gx PATH /home/subash/.tnr/bin $PATH
+

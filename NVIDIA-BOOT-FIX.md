@@ -67,16 +67,81 @@ PCI bus IDs on this hardware (for reference): Intel iGPU `0000:00:02.0` → `PCI
   __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia __VK_LAYER_NV_optimus=NVIDIA_only <app>
   ```
 
-## TODO / not yet verified
-1. **Check whether routine system updates will silently break the initramfs fix.** Need to inspect the actual pacman hook that rebuilds initramfs on kernel/nvidia updates:
-   ```bash
-   pacman -Qlq linux-lts | grep -i hook
-   cat /etc/kernel/install.conf 2>/dev/null
-   find /usr/lib/kernel/install.d/ -type f 2>/dev/null
-   ```
-   If it has the same "writes to BLS path, not classic /boot" bug as manual `--regenerate-all`, every future kernel/nvidia update needs a manual re-run of the explicit `--kver` rebuild command above, followed by the `lsinitrd` verification.
+## Recovery runbook: if a boot hang happens again
 
-2. **Suspend/resume untested.** Sleep re-initializes hardware similarly to boot and could plausibly re-trigger the same ACPI NVPCF race, since NVIDIA is deferred-load, not blacklisted. Test deliberately: `systemctl suspend`, then wake and confirm clean resume.
+The underlying driver bug is still unpatched upstream — it can theoretically fire on any boot. Two different scenarios, depending on how bad it is:
+
+### Scenario A — Desktop boots fine, but NVIDIA didn't load (the expected failure mode post-fix)
+Symptoms: you're logged in, i3/polybar is working, but `nvidia-smi` fails or the GPU polybar widget shows nothing.
+
+```bash
+# 1. Confirm this is actually what's happening
+nvidia-smi
+# error like "NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver" confirms it
+
+# 2. Check if the driver hung trying to load
+journalctl -k -b 0 --no-pager | grep -iE "blocked for more than|kgspInitRm|rm_acpi_nvpcf_notify"
+
+# 3. Try reloading the driver stack cleanly
+sudo rmmod nvidia_uvm nvidia_drm nvidia_modeset nvidia 2>/dev/null
+sudo modprobe nvidia_drm modeset=1
+
+# 4. Verify it's back
+nvidia-smi
+```
+If step 3 itself hangs (rare — rmmod/modprobe just sit there with no output for over a minute), don't fight it: skip to a normal reboot. This scenario doesn't require touching any config — nothing was reverted, the driver just needs a fresh load attempt.
+
+### Scenario B — Full boot hang (the old-style symptom, screen frozen, no progress)
+Symptoms: stuck at a boot message (e.g. `A start job is running for /dev/disk/by-uuid/...` or `dracut initqueue hook`) for over 2–3 minutes with zero progress.
+
+```bash
+# 1. Wait it out first — genuinely confirm it's hung, not just slow
+#    (default hung_task_timeout is 120s; give it a clean 3 minutes before acting)
+
+# 2. Hard power off: hold the power button ~10 seconds. Then power back on.
+
+# 3. At the GRUB menu, do NOT just press Enter on the normal entry.
+#    Press 'e' to edit it first (one-time edit, not saved).
+
+# 4. Find the line starting with "linux" (the kernel command line).
+#    Go to the end of that line and append:
+module_blacklist=nvidia,nvidia_drm,nvidia_modeset,nvidia_uvm
+
+# 5. Press Ctrl+X (or F10) to boot with this one-time edit.
+#    This boots Intel-only, guaranteed — NVIDIA never loads, so it can't hang.
+```
+This gets you back to a working desktop with zero NVIDIA (no GPU acceleration, no PRIME offload) until you're ready to investigate further. It's non-persistent — next normal boot goes back to trying NVIDIA as usual, so you don't need to undo anything.
+
+### After recovering from either scenario — verify nothing got reverted
+```bash
+grep omit_drivers /etc/dracut.conf.d/eos_nvidia_open.conf
+cat /etc/modprobe.d/nvidia-power.conf
+cat /etc/X11/xorg.conf.d/10-nvidia-drm-outputclass.conf   # should be empty
+cat /etc/X11/xorg.conf.d/10-intel-only.conf
+ls -la /boot/initramfs-linux*.img                          # timestamps, sanity check
+```
+If any of these are missing or different from what's documented above under "Config files touched," that's your actual root cause — restore from this doc's documented content, not from guessing.
+
+### If Scenario B keeps recurring
+A single Scenario-B hang could be a fluke; if it happens more than once, that's a sign the current workaround (deferred-load) is no longer sufficient and it's time to move to one of the two permanent-fix paths already identified in TODO #3 below (ACPI table override, or legacy `nvidia-580xx-dkms` with `NVreg_EnableGpuFirmware=0`), rather than continuing to rely on the boot-order workaround.
+
+## TODO / not yet verified
+1. **Verified safe (2026-07-21): routine system updates will NOT silently break the initramfs fix.** Inspected the actual pacman hook that fires on kernel/nvidia updates — `/usr/share/libalpm/hooks/90-dracut-install.hook`, triggered on `usr/lib/modules/*/vmlinuz` and `usr/src/*/dkms.conf` (covers both `linux`/`linux-lts` and `nvidia-open-dkms` updates). It runs EndeavourOS's own `/usr/share/libalpm/scripts/dracut-install` script, **not** the generic `dracut --regenerate-all` — that script explicitly targets the real classic path:
+   ```bash
+   dracut --force --hostonly --no-hostonly-cmdline /boot/initramfs-${pkgbase}.img "${kver}"
+   dracut --force --no-hostonly /boot/initramfs-${pkgbase}-fallback.img "${kver}"
+   ```
+   This is the same explicit `--kver`-targeted form recommended above for manual rebuilds, not the buggy BLS/ESP path. Since `dracut` always reads `/etc/dracut.conf.d/*.conf` regardless of invocation, `omit_drivers` is respected automatically on every future kernel/nvidia update — no manual intervention needed for this specific concern. (Still not a bad idea to spot-check `lsinitrd /boot/initramfs-linux.img | grep nvidia` once after a big kernel jump, just as a sanity check — but it's no longer a required step.)
+
+2. **Suspend/resume: tested once (2026-07-21), passed.** Lid close (`HandleLidSwitch=suspend`, systemd default, no override needed) triggered a full `systemctl suspend` → clean `S3` resume in ~13s, confirmed via `journalctl -k`:
+   ```
+   PM: suspend entry (deep) → ACPI: PM: Waking up from system sleep state S3 → PM: suspend exit
+   ```
+   wifi reassociated automatically afterward, `xss-lock` correctly showed the lock screen on wake (expected — not a bug). Same boot session throughout (`uptime`/`who -b` confirmed no reboot).
+
+   **One non-fatal anomaly seen during that resume, worth watching**: `NVRM: rm_power_source_change_event: Failed to handle Power Source change event, status=0x11` — the NVIDIA driver failed to process an AC/battery power-source-change event right at resume. Didn't block or delay the resume this time, but it's in the same power-management codepath (NVPCF-adjacent) as the original boot deadlock. Not urgent, but if a hang is ever seen on resume in the future, check for this line first.
+
+   Single successful test isn't full confidence — if you suspend/resume often, worth repeating a few more times (including resuming on battery vs. AC, since the failed event was a power-*source* event) before fully trusting it unattended.
 
 3. **Not a real fix yet, just a stable workaround.** The root NVIDIA driver bug (`rm_acpi_nvpcf_notify` lock inversion) is still present upstream. Two paths to a permanent fix if the current workaround ever proves insufficient:
    - ACPI table override to neutralize the `NPCF` device's `Notify(NPCF, 0xC0/0xC1)` calls (documented, manual, fragile — must be redone after BIOS updates).

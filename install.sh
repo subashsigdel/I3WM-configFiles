@@ -38,6 +38,8 @@ link "$REPO_DIR/terminal/xfce4-terminal.xml" "$HOME/.config/xfce4/xfconf/xfce-pe
 link "$REPO_DIR/gtk/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 link "$REPO_DIR/xsettingsd/xsettingsd.conf" "$HOME/.config/xsettingsd/xsettingsd.conf"
 
+link "$REPO_DIR/xresources/Xresources" "$HOME/.Xresources"
+
 if [ "$(id -u)" -eq 0 ] || sudo -n true 2>/dev/null; then
     sudo cp "$REPO_DIR/systemd/wake-alarm.service" /etc/systemd/system/wake-alarm.service
     sudo systemctl daemon-reload
