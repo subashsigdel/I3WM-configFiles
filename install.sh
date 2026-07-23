@@ -18,6 +18,10 @@ link() {
 link "$REPO_DIR/i3"      "$HOME/.config/i3"
 link "$REPO_DIR/polybar" "$HOME/.config/polybar"
 link "$REPO_DIR/dunst/dunstrc" "$HOME/.config/dunst/dunstrc"
+link "$REPO_DIR/picom/picom.conf" "$HOME/.config/picom/picom.conf"
+link "$REPO_DIR/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
+link "$REPO_DIR/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+link "$REPO_DIR/flameshot/flameshot.ini" "$HOME/.config/flameshot/flameshot.ini"
 
 for f in "$REPO_DIR"/rofi/*.rasi; do
     link "$f" "$HOME/.config/rofi/$(basename "$f")"
@@ -34,6 +38,7 @@ for f in "$REPO_DIR"/fish/functions/*; do
 done
 
 link "$REPO_DIR/terminal/xfce4-terminal.xml" "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-terminal.xml"
+link "$REPO_DIR/xfce4/helpers.rc" "$HOME/.config/xfce4/helpers.rc"
 
 link "$REPO_DIR/gtk/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
 link "$REPO_DIR/xsettingsd/xsettingsd.conf" "$HOME/.config/xsettingsd/xsettingsd.conf"

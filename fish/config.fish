@@ -35,3 +35,17 @@ function play_error_sound --on-event fish_postexec
 end
 set -gx PATH /home/subash/.tnr/bin $PATH
 
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+if test -f /home/subash/miniforge3/bin/conda
+    eval /home/subash/miniforge3/bin/conda "shell.fish" "hook" $argv | source
+else
+    if test -f "/home/subash/miniforge3/etc/fish/conf.d/conda.fish"
+        . "/home/subash/miniforge3/etc/fish/conf.d/conda.fish"
+    else
+        set -x PATH "/home/subash/miniforge3/bin" $PATH
+    end
+end
+# <<< conda initialize <<<
+
