@@ -1,6 +1,7 @@
 exec --no-startup-id xrdb -merge ~/.Xresources
 exec --no-startup-id xsettingsd
 exec --no-startup-id ~/set_once.sh
+exec --no-startup-id ~/.config/i3/scripts/swipe
 # This file is a modified version based on default i3-config-wizard config
 # source is available here:
 # https://raw.githubusercontent.com/endeavouros-team/endeavouros-i3wm-setup/main/etc/skel/.config/i3/config
@@ -601,6 +602,9 @@ bindsym $mod+t exec --no-startup-id rofi -show window \
 #		-config ~/.config/rofi/rofidmenu.rasi
 # Flameshot screenshot with Ctrl+Shift+S
 bindsym Control+Shift+s exec --no-startup-id flameshot gui
+# Dr. Kaku Screenshot Q&A: select a question; the phone answers it with Gemini
+# and writes the .md next to the image.
+bindsym $mod+Shift+a exec --no-startup-id flameshot gui --path "$HOME/Kaku/ask"
 
 # Stop wake alarm
 bindsym $mod+F12 exec sudo systemctl stop wake-alarm.service
